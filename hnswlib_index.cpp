@@ -3,14 +3,17 @@
 #include "constants.h"
 #include <iostream>
 #include <vector>
+#include <fstream> // 包含 <fstream> 以使用 std::ifstream
 
-HNSWLibIndex::HNSWLibIndex(int dim, int num_data, IndexFactory::MetricType metric, int M, int ef_construction) {
+HNSWLibIndex::HNSWLibIndex(int dim, int num_data, IndexFactory::MetricType metric, int M, int ef_construction) : max_elements(num_data)  {
     hnswlib::SpaceInterface<float>* space;
     if (metric == IndexFactory::MetricType::L2) {
         space = new hnswlib::L2Space(dim);
     } else {
         space = new hnswlib::InnerProductSpace(dim);
     }
+    
+    this->space = space; // 初始化 space 成员变量
     index = new hnswlib::HierarchicalNSW<float>(space, num_data, M, ef_construction);
 }
 
@@ -43,4 +46,18 @@ std::pair<std::vector<long>, std::vector<float>> HNSWLibIndex::search_vectors(co
     } 
 
     return {indices, distances};
+}
+
+void HNSWLibIndex::saveIndex(const std::string& file_path) { // 添加 saveIndex 方法实现
+    index->saveIndex(file_path);
+}
+
+void HNSWLibIndex::loadIndex(const std::string& file_path) { // 添加 loadIndex 方法实现
+    std::ifstream file(file_path); // 尝试打开文件
+    if (file.good()) { // 检查文件是否存在
+        file.close();
+        index->loadIndex(file_path, space, max_elements);
+    } else {
+        GlobalLogger->warn("File not found: {}. Skipping loading index.", file_path);
+    }
 }
