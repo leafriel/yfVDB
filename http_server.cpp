@@ -247,6 +247,8 @@ void HttpServer::upsertHandler(const httplib::Request& req, httplib::Response& r
     // 获取请求参数中的索引类型
     IndexFactory::IndexType indexType = getIndexTypeFromRequest(json_request);
     vector_database_->upsert(label, json_request, indexType);
+    // 在 upsert 调用之后调用 VectorDatabase::writeWALLog
+    vector_database_->writeWALLog("upsert", json_request);
 
     rapidjson::Document json_response;
     json_response.SetObject();

@@ -7,8 +7,15 @@
 #include <vector>
 
 
-bool RoaringBitmapIDSelector::is_member(int64_t id) const {
-    return roaring_bitmap_contains(bitmap_, static_cast<uint32_t>(id));
+// bool RoaringBitmapIDSelector::is_member(int64_t id) const {
+//     return roaring_bitmap_contains(bitmap_, static_cast<uint32_t>(id));
+// }
+
+bool RoaringBitmapIDSelector::is_member(int64_t id) const{
+    bool is_member = roaring_bitmap_contains(bitmap_, static_cast<uint32_t>(id)); // 获取 is_member 结果
+    GlobalLogger->debug("RoaringBitmapIDSelector::is_member id: {}, is_member: {}", id, is_member); // 打印 id 和 is_member 结果
+
+    return is_member;
 }
 
 FaissIndex::FaissIndex(faiss::Index* index) : index(index) {}

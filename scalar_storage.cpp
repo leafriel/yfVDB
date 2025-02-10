@@ -23,6 +23,7 @@ ScalarStorage::ScalarStorage(const std::string& db_path) {
         throw std::runtime_error("Failed to open RocksDB: " + status.ToString());
     }
 }
+
 ScalarStorage::~ScalarStorage() {
     delete db_;
 }
