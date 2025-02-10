@@ -3,15 +3,6 @@ Header-only C++ HNSW implementation with python bindings, insertions and updates
 
 **NEWS:**
 
-**version 0.8.0** 
-
-* Multi-vector document search and epsilon search (for now, only in C++)
-* By default, there is no statistic aggregation, which speeds up the multi-threaded search (it does not seem like people are using it anyway: [Issue #495](https://github.com/nmslib/hnswlib/issues/495)). 
-* Various bugfixes and improvements
-* `get_items` now have `return_type` parameter, which can be either 'numpy' or 'list'
-
-Full list of changes: https://github.com/nmslib/hnswlib/pull/523
-
 **version 0.7.0** 
 
 * Added support to filtering (#402, #430) by [@kishorenc](https://github.com/kishorenc)
@@ -25,8 +16,8 @@ Full list of changes: https://github.com/nmslib/hnswlib/pull/523
 ### Highlights:
 1) Lightweight, header-only, no dependencies other than C++ 11
 2) Interfaces for C++, Python, external support for Java and R (https://github.com/jlmelville/rcpphnsw).
-3) Has full support for incremental index construction and updating the elements (thanks to the contribution by Apoorv Sharma). Has support for element deletions 
-(by marking them in index, later can be replaced with other elements). Python index is picklable.
+3) Has full support for incremental index construction and updating the elements. Has support for element deletions 
+(by marking them in index). Index is picklable.
 4) Can work with custom user defined distances (C++).
 5) Significantly less memory footprint and faster build time compared to current nmslib's implementation.
 
@@ -88,7 +79,7 @@ For other spaces use the nmslib library https://github.com/nmslib/nmslib.
 
 * `set_num_threads(num_threads)` set the default number of cpu threads used during data insertion/querying.
   
-* `get_items(ids, return_type = 'numpy')` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`) if `return_type` is `list` return list of lists. Note that for cosine similarity it currently returns **normalized** vectors.
+* `get_items(ids)` - returns a numpy array (shape:`N*dim`) of vectors that have integer identifiers specified in `ids` numpy vector (shape:`N`). Note that for cosine similarity it currently returns **normalized** vectors.
   
 * `get_ids_list()`  - returns a list of all elements' ids.
 
@@ -238,8 +229,6 @@ print("Recall for two batches:", np.mean(labels.reshape(-1) == np.arange(len(dat
 * filtering during the search with a boolean function
 * deleting the elements and reusing the memory of the deleted elements for newly added elements
 * multithreaded usage
-* multivector search
-* epsilon search
 
 
 ### Bindings installation
