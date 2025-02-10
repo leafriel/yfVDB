@@ -1,5 +1,6 @@
 #include "http_server.h"
 #include "faiss_index.h"
+#include "hnswlib_index.h"
 #include "index_factory.h"
 #include "logger.h"
 #include "constants.h"
@@ -39,13 +40,15 @@ bool HttpServer::isRequestValid(const rapidjson::Document& json_request, CheckTy
 
 IndexFactory::IndexType HttpServer::getIndexTypeFromRequest(const rapidjson::Document& json_request) {
     // 获取请求参数中的索引类型
-    if (json_request.HasMember(REQUEST_INDEX_TYPE)) {
+    if (json_request.HasMember(REQUEST_INDEX_TYPE) && json_request[REQUEST_INDEX_TYPE].IsString()) {
         std::string index_type_str = json_request[REQUEST_INDEX_TYPE].GetString();
-        if (index_type_str == "FLAT") {
+        if (index_type_str == INDEX_TYPE_FLAT) {
             return IndexFactory::IndexType::FLAT;
+        } else if (index_type_str == INDEX_TYPE_HNSW) { // 添加对HNSW的支持
+            return IndexFactory::IndexType::HNSW;
         }
     }
-    return IndexFactory::IndexType::UNKNOWN; 
+    return IndexFactory::IndexType::UNKNOWN; // 返回UNKNOWN值
 }
 
 void HttpServer::searchHandler(const httplib::Request& req, httplib::Response& res) {
@@ -103,6 +106,11 @@ void HttpServer::searchHandler(const httplib::Request& req, httplib::Response& r
         case IndexFactory::IndexType::FLAT: {
             FaissIndex* faissIndex = static_cast<FaissIndex*>(index);
             results = faissIndex->search_vectors(query, k);
+            break;
+        }
+        case IndexFactory::IndexType::HNSW: {
+            HNSWLibIndex* hnswIndex = static_cast<HNSWLibIndex*>(index);
+            results = hnswIndex->search_vectors(query, k);
             break;
         }
         // 在此处添加其他索引类型的处理逻辑
@@ -193,6 +201,12 @@ void HttpServer::insertHandler(const httplib::Request& req, httplib::Response& r
             faissIndex->insert_vectors(data, label);
             break;
         }
+        case IndexFactory::IndexType::HNSW: { // 添加HNSW索引类型的处理逻辑
+            HNSWLibIndex* hnswIndex = static_cast<HNSWLibIndex*>(index);
+            hnswIndex->insert_vectors(data, label);
+            break;
+        }
+
         // 在此处添加其他索引类型的处理逻辑
         default:
             break;
