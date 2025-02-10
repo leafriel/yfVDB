@@ -2,16 +2,19 @@
 CXX = g++
 
 # 编译选项
-CXXFLAGS = -std=c++11 -g -Wall
+CXXFLAGS = -std=c++11 -g $(INCLUDES)  # 将INCLUDES添加到CXXFLAGS
 
 # 链接选项
-LDFLAGS = -lfaiss -fopenmp -lopenblas -lpthread -lspdlog 
+LDFLAGS = -lfaiss -fopenmp -lopenblas -lpthread -lspdlog
+
+# Include directories
+INCLUDES = -I ./hnswlib
 
 # 目标文件
 TARGET = vdb_server
 
 # 源文件
-SOURCES = vdb_server.cpp faiss_index.cpp http_server.cpp index_factory.cpp logger.cpp
+SOURCES = vdb_server.cpp faiss_index.cpp http_server.cpp index_factory.cpp logger.cpp hnswlib_index.cpp
 
 # 对象文件
 OBJECTS = $(SOURCES:.cpp=.o)
