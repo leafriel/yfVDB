@@ -15,16 +15,16 @@ void HNSWLibIndex::insert_vectors(const std::vector<float>& data, uint64_t label
     index->addPoint(data.data(), label);
 }
 
-std::pair<std::vector<long>, std::vector<float>> HNSWLibIndex::search_vectors(const std::vector<float>& query, int k, int ef_search) { // 修改返回类型
+std::pair<std::vector<long>, std::vector<float>> HNSWLibIndex::search_vectors(const std::vector<float>& query, int k, int ef_search) {
     index->setEf(ef_search);
     auto result = index->searchKnn(query.data(), k);
 
-    std::vector<long> indices(k);
-    std::vector<float> distances(k);
-    for (int j = 0; j < k; j++) {
+    std::vector<long> indices;
+    std::vector<float> distances;
+    while (!result.empty()) { // 检查result是否为空
         auto item = result.top();
-        indices[j] = item.second;
-        distances[j] = item.first;
+        indices.push_back(item.second);
+        distances.push_back(item.first);
         result.pop();
     }
 
