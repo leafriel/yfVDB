@@ -1,9 +1,15 @@
 #include "faiss_index.h"
 #include "logger.h"
-#include "constants.h" 
+#include "constants.h"
 #include <faiss/IndexIDMap.h>
+#include <faiss/IndexFlat.h>
 #include <iostream>
 #include <vector>
+
+
+bool RoaringBitmapIDSelector::is_member(int64_t id) const {
+    return roaring_bitmap_contains(bitmap_, static_cast<uint32_t>(id));
+}
 
 FaissIndex::FaissIndex(faiss::Index* index) : index(index) {}
 
@@ -12,10 +18,9 @@ void FaissIndex::insert_vectors(const std::vector<float>& data, uint64_t label) 
     index->add_with_ids(1, data.data(), &id);
 }
 
-void FaissIndex::remove_vectors(const std::vector<long>& ids) { // 添加remove_vectors函数实现
+void FaissIndex::remove_vectors(const std::vector<long>& ids) {
     faiss::IndexIDMap* id_map = dynamic_cast<faiss::IndexIDMap*>(index);
     if (id_map) {
-        // 初始化IDSelectorBatch对象
         faiss::IDSelectorBatch selector(ids.size(), ids.data());
         id_map->remove_ids(selector);
     } else {
@@ -23,13 +28,20 @@ void FaissIndex::remove_vectors(const std::vector<long>& ids) { // 添加remove_
     }
 }
 
-std::pair<std::vector<long>, std::vector<float>> FaissIndex::search_vectors(const std::vector<float>& query, int k) {
+std::pair<std::vector<long>, std::vector<float>> FaissIndex::search_vectors(const std::vector<float>& query, int k, const roaring_bitmap_t* bitmap) {
     int dim = index->d;
     int num_queries = query.size() / dim;
     std::vector<long> indices(num_queries * k);
     std::vector<float> distances(num_queries * k);
 
-    index->search(num_queries, query.data(), k, distances.data(), indices.data());
+    // 如果传入了 bitmap 参数，则使用 RoaringBitmapIDSelector 初始化 faiss::SearchParameters 对象
+    faiss::SearchParameters search_params;
+    RoaringBitmapIDSelector selector(bitmap);
+    if (bitmap != nullptr) {
+        search_params.sel = &selector;
+    }
+
+    index->search(num_queries, query.data(), k, distances.data(), indices.data(), &search_params); // 将 search_params 传入 search 方法
 
     GlobalLogger->debug("Retrieved values:");
     for (size_t i = 0; i < indices.size(); ++i) {
