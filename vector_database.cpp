@@ -11,9 +11,9 @@
 #include <rapidjson/stringbuffer.h> // 包含 rapidjson/stringbuffer.h 以使用 StringBuffer 类
 #include <rapidjson/writer.h> // 包含 rapidjson/writer.h 以使用 Writer 类
 
-VectorDatabase::VectorDatabase(const std::string& db_path, const std::string& wal_path) // 添加 wal_path 参数
+VectorDatabase::VectorDatabase(const std::string& db_path, const std::string& wal_path) 
     : scalar_storage_(db_path) {
-    persistence_.init(wal_path); // 初始化 persistence_ 对象
+    persistence_.init(wal_path);
 }
 
 void VectorDatabase::reloadDatabase() {
@@ -52,6 +52,12 @@ void VectorDatabase::reloadDatabase() {
 void VectorDatabase::writeWALLog(const std::string& operation_type, const rapidjson::Document& json_data) {
     std::string version = "1.0"; // 您可以根据需要设置版本
     persistence_.writeWALLog(operation_type, json_data, version); // 将 version 传递给 writeWALLog 方法
+}
+
+void VectorDatabase::writeWALLogWithID(uint64_t log_id, const std::string& data) {
+    std::string operation_type = "upsert"; // 默认 operation_type 为 upsert
+    std::string version = "1.0"; // 您可以根据需要设置版本
+    persistence_.writeWALRawLog(log_id, operation_type, data, version); // 调用 persistence_ 的 writeWALRawLog 方法
 }
 
 IndexFactory::IndexType VectorDatabase::getIndexTypeFromRequest(const rapidjson::Document& json_request) {
@@ -226,4 +232,8 @@ std::pair<std::vector<long>, std::vector<float>> VectorDatabase::search(const ra
 
 void VectorDatabase::takeSnapshot() { // 添加 takeSnapshot 方法实现
     persistence_.takeSnapshot(scalar_storage_);
+}
+
+int64_t VectorDatabase::getStartIndexID() const {
+    return persistence_.getID(); // 通过调用 persistence_ 的 GetID 方法获取起始索引 ID
 }
