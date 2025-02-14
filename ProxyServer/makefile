@@ -1,5 +1,5 @@
 CXX = g++ # 使用 g++ 编译器
-CXXFLAGS = -Wall -std=c++11 # 编译标志，启用所有警告和C++11标准
+CXXFLAGS = -Wall -g -std=c++11 # 编译标志，启用所有警告和C++11标准
 LDFLAGS = -lcurl -lpthread -lspdlog # 链接标志，链接 libcurl, pthread 和 spdlog
 
 # 源文件列表

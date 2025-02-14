@@ -1,1 +1,9 @@
-proxy只保留status为正确的节点
+获取包含分区信息的拓扑结构
+curl -X GET http://localhost:80/topology
+
+
+写入数据
+curl -X POST -H "Content-Type: application/json" -d '{"id": 6, "vectors": [0.9], "int_field": 49, "indexType": "FLAT"}' http://localhost:80/upsert
+
+查询数据
+curl -X POST -H "Content-Type: application/json" -d '{"vectors": [0.9], "k": 5, "indexType": "FLAT", "filter":{"fieldName":"int_field","value":43, "op":"!="}}' http://localhost:80/search
