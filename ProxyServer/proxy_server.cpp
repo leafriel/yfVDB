@@ -82,6 +82,7 @@ void ProxyServer::forwardRequest(const httplib::Request& req, httplib::Response&
     }
 
     size_t nodeIndex = 0;
+    bool findMaster = false;
 
     // 检查是否需要强制路由到主节点
     bool forceMaster = (req.has_param("forceMaster") && req.get_param_value("forceMaster") == "true");
@@ -90,8 +91,16 @@ void ProxyServer::forwardRequest(const httplib::Request& req, httplib::Response&
         for (size_t i = 0; i < nodes_[activeIndex].size(); ++i) {
             if (nodes_[activeIndex][i].role == 0) {
                 nodeIndex = i;
+                findMaster = true;
                 break;
             }
+        }
+
+        if (!findMaster) {
+            GlobalLogger->error("No master node available for request");
+            res.status = 503;
+            res.set_content("Service Unavailable", "text/plain");
+            return;
         }
     } else {    
         // 读请求 - 轮询选择任何角色的节点
@@ -177,11 +186,15 @@ void ProxyServer::fetchAndUpdateNodes() {
     nodes_[inactiveIndex].clear();
     const auto& nodesArray = doc["data"]["nodes"].GetArray();
     for (const auto& nodeVal : nodesArray) {
-        NodeInfo node;
-        node.nodeId = nodeVal["nodeId"].GetString();
-        node.url = nodeVal["url"].GetString();
-        node.role = nodeVal["role"].GetInt();
-        nodes_[inactiveIndex].push_back(node);
+        if (nodeVal["status"].GetInt() == 1) { // 只添加状态为 1 的节点
+            NodeInfo node;
+            node.nodeId = nodeVal["nodeId"].GetString();
+            node.url = nodeVal["url"].GetString();
+            node.role = nodeVal["role"].GetInt();
+            nodes_[inactiveIndex].push_back(node);
+        } else {
+            GlobalLogger->info("Skipping inactive node: {}", nodeVal["nodeId"].GetString());
+        }
     }
 
     // 原子地切换活动数组索引

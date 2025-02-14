@@ -9,7 +9,7 @@
 struct NodeInfo {
     std::string nodeId;
     std::string url;
-    int role; // 例如，0 表示主节点，1 表示从节点
+    int role; // 例如，0 表示主节点，1 表示从节点;
 };
 
 class ProxyServer {

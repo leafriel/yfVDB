@@ -2,6 +2,7 @@
 #include "logger.h"
 #include <sstream>
 #include <iostream>
+#include <curl/curl.h>
 #include "rapidjson/document.h"
 #include "rapidjson/stringbuffer.h"
 #include "rapidjson/writer.h"
@@ -47,6 +48,10 @@ MasterServer::MasterServer(const std::string& etcdEndpoints, int httpPort)
     httpServer_.Get("/getInstance", [this](const httplib::Request& req, httplib::Response& res) {
         getInstance(req, res);
     });
+
+    // 启动定时器
+    startNodeUpdateTimer();
+
 }
 
 void MasterServer::run() {
@@ -135,8 +140,6 @@ void MasterServer::addNode(const httplib::Request& req, httplib::Response& res) 
     }
 }
 
-
-
 void MasterServer::removeNode(const httplib::Request& req, httplib::Response& res) {
     auto instanceId = req.get_param_value("instanceId");
     auto nodeId = req.get_param_value("nodeId");
@@ -203,6 +206,105 @@ void MasterServer::getInstance(const httplib::Request& req, httplib::Response& r
         setResponse(res, 1, "Exception accessing etcd: " + std::string(e.what()));
     }
 }
+
+void MasterServer::startNodeUpdateTimer() {
+    std::thread([this]() {
+        while (true) { // 这里可能需要一种更优雅的退出机制
+            std::this_thread::sleep_for(std::chrono::seconds(10)); // 每10秒更新一次
+            updateNodeStates();
+        }
+    }).detach();
+}
+
+size_t MasterServer::writeCallback(void *contents, size_t size, size_t nmemb, void *userp) {
+    ((std::string*)userp)->append((char*)contents, size * nmemb);
+    return size * nmemb;
+}
+
+void MasterServer::updateNodeStates() {
+    CURL* curl = curl_easy_init();
+
+    if (!curl) {
+        GlobalLogger->error("CURL initialization failed");
+        return;
+    }
+
+    try {
+        std::string nodesKeyPrefix = "/instances/";
+        GlobalLogger->info("Fetching nodes list from etcd");
+        etcd::Response etcdResponse = etcdClient_.ls(nodesKeyPrefix).get();
+
+        for (size_t i = 0; i < etcdResponse.keys().size(); ++i) {
+            const std::string& nodeKey = etcdResponse.keys()[i];
+            const std::string& nodeValue = etcdResponse.values()[i].as_string();
+
+            rapidjson::Document nodeDoc;
+            nodeDoc.Parse(nodeValue.c_str());
+            if (!nodeDoc.IsObject()) {
+                GlobalLogger->warn("Invalid JSON format for node: {}", nodeKey);
+                continue;
+            }
+
+            std::string getNodeUrl = std::string(nodeDoc["url"].GetString()) + "/admin/getNode";
+            GlobalLogger->debug("Sending request to {}", getNodeUrl);
+
+            curl_easy_setopt(curl, CURLOPT_URL, getNodeUrl.c_str());
+            curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeCallback);
+
+            std::string responseStr;
+            curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseStr);
+
+            CURLcode res = curl_easy_perform(curl);
+            bool needsUpdate = false;
+
+            if (res != CURLE_OK) {
+                GlobalLogger->error("curl_easy_perform() failed: {}", curl_easy_strerror(res));
+                nodeErrorCounts[nodeKey]++;
+                if (nodeErrorCounts[nodeKey] >= 5 && nodeDoc["status"].GetInt() != 0) {
+                    nodeDoc["status"].SetInt(0); // Set status to 0 (abnormal)
+                    needsUpdate = true;
+                }
+            } else {
+                nodeErrorCounts[nodeKey] = 0; // Reset error count
+                if (nodeDoc["status"].GetInt() != 1) {
+                    nodeDoc["status"].SetInt(1); // Set status to 1 (normal)
+                    needsUpdate = true;
+                }
+
+                rapidjson::Document getNodeResponse;
+                getNodeResponse.Parse(responseStr.c_str());
+                if (getNodeResponse.HasMember("node") && getNodeResponse["node"].IsObject()) {
+                    std::string state = getNodeResponse["node"]["state"].GetString();
+                    int newRole = (state == "leader") ? 0 : 1;
+
+                    if (nodeDoc["role"].GetInt() != newRole) {
+                        nodeDoc["role"].SetInt(newRole); // Update role
+                        needsUpdate = true;
+                    }
+                }
+            }
+
+            if (needsUpdate) {
+                rapidjson::StringBuffer buffer;
+                rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+                nodeDoc.Accept(writer);
+
+                etcdClient_.set(nodeKey, buffer.GetString()).get();
+                GlobalLogger->info("Updated node {} with new status and role", nodeKey);
+            }
+        }
+    } catch (const std::exception& e) {
+        GlobalLogger->error("Exception while updating node states: {}", e.what());
+    }
+
+    curl_easy_cleanup(curl);
+}
+
+
+
+
+
+
 
 
 
